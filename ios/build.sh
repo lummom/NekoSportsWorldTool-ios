@@ -41,13 +41,27 @@ SDK_PATH="$(xcrun --sdk "$SDK" --show-sdk-path)"
 xcrun --sdk "$SDK" swiftc -O -sdk "$SDK_PATH" -target "$SWIFT_TARGET" \
   -Xlinker -syslibroot -Xlinker "$SDK_PATH" \
   "$ROOT/ios/main.swift" \
-  -L "$(dirname "$LIB")" -lnekosportsworldtool \
+  "$LIB" \
   -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore \
   -framework Metal -framework CoreText -framework Security -framework UniformTypeIdentifiers \
   -lc++ \
   -o "$APP/$NAME"
 
 cp "$ROOT/ios/Info.plist" "$APP/Info.plist"
+
+# 防呆（踩过）：同目录里的 cdylib 副产物 libnekosportsworldtool.dylib 会被 -l 优先选中，
+# 结果可执行文件只有 100 多 KB、代码留在 bundle 外——CI 上能跑，真机必崩。
+if otool -L "$APP/$NAME" | grep -q 'libnekosportsworldtool'; then
+  echo "❌ 链接到了 libnekosportsworldtool.dylib，而非静态库 .a：" >&2
+  otool -L "$APP/$NAME" >&2
+  exit 1
+fi
+BIN_SIZE="$(stat -f%z "$APP/$NAME")"
+if [ "$BIN_SIZE" -lt 5000000 ]; then
+  echo "❌ 可执行文件只有 $BIN_SIZE 字节，Rust 静态库疑似没链进去" >&2
+  exit 1
+fi
+echo "可执行文件大小: $BIN_SIZE 字节"
 
 # 模拟器不强制签名，但签个 ad-hoc 更接近真机
 if [ "$KIND" = "simulator" ]; then

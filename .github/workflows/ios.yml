@@ -66,7 +66,8 @@ jobs:
       - name: 启动模拟器并装包
         run: |
           set -euo pipefail
-          DEVICE="$(xcrun simctl list devices available | grep -oE 'iPhone [0-9A-Za-z() ]+' | head -1 | sed 's/ *$//')"
+          DEVICE="$(xcrun simctl list devices available | grep -m1 -E '^[[:space:]]+iPhone' | grep -oE '[0-9A-Fa-f]{8}-[0-9A-Fa-f-]{27}' | head -1)"
+          if [ -z "$DEVICE" ]; then echo "找不到可用的 iPhone 模拟器"; exit 1; fi
           echo "模拟器: $DEVICE"
           echo "DEVICE=$DEVICE" >> "$GITHUB_ENV"
           xcrun simctl boot "$DEVICE" || true
@@ -92,29 +93,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m pip install --quiet Pillow
-          python3 - <<'PY'
-          import os, sys
-          from PIL import Image, ImageChops
-
-          before, after = "dist/evidence/shot-before.png", "dist/evidence/shot-after.png"
-          for path in (before, after):
-              size = os.path.getsize(path)
-              print(f"{path}: {size} 字节")
-              if size < 20_000:
-                  sys.exit(f"截图疑似空白: {path}")
-
-          a = Image.open(before).convert("RGB")
-          b = Image.open(after).convert("RGB")
-          if a.size != b.size:
-              sys.exit(f"截图尺寸不一致: {a.size} vs {b.size}")
-          diff = ImageChops.difference(a, b)
-          changed = sum(1 for pixel in diff.getdata() if sum(pixel) > 24)
-          ratio = changed / (a.size[0] * a.size[1])
-          print(f"换页前后变化像素占比: {ratio:.4%}")
-          if ratio < 0.005:
-              sys.exit("换页前后画面几乎没变 —— egui 没渲染或没重绘")
-          print("渲染 + 重绘 OK")
-          PY
+          python3 ios/ci_assert_screenshots.py dist/evidence
           if grep -qiE 'panic|fatal error' dist/evidence/app.log; then
             echo "日志里出现 panic:"; grep -iE 'panic|fatal error' dist/evidence/app.log | head -5; exit 1
           fi

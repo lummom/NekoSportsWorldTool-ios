@@ -12,10 +12,18 @@ OUT="$ROOT/dist"
 NAME="NekoSportsWorldTool"
 
 case "$KIND" in
-  device)    TRIPLE="aarch64-apple-ios";     SDK="iphoneos";        SWIFT_TARGET="arm64-apple-ios14.0" ;;
-  simulator) TRIPLE="aarch64-apple-ios-sim"; SDK="iphonesimulator"; SWIFT_TARGET="arm64-apple-ios14.0-simulator" ;;
+  device)    TRIPLE="aarch64-apple-ios";     SDK="iphoneos";        SWIFT_TARGET="arm64-apple-ios14.0";           MIN_FLAG="-mios-version-min=14.0" ;;
+  simulator) TRIPLE="aarch64-apple-ios-sim"; SDK="iphonesimulator"; SWIFT_TARGET="arm64-apple-ios14.0-simulator"; MIN_FLAG="-mios-simulator-version-min=14.0" ;;
   *) echo "用法: $0 <device|simulator> [release|debug]" >&2; exit 2 ;;
 esac
+
+# 两件事必须显式指定（否则 CI 会分别在链接和部署目标上踩坑）：
+#   1) Rust 侧调用的 4 个 Swift 函数（见 src/ios.rs）在 cargo 链接 cdylib 副产物时还不存在，
+#      iOS 的 staticlib 才是真正交给 Swift 链接的东西 → 允许 .dylib 留未定义符号。
+#   2) rustc 对 aarch64-apple-ios 默认按 10.0 链接，而 ring 等 C 代码按当前 SDK(26.x) 编译
+#      → 统一部署目标，避免 "built for newer iOS version" 链接警告与潜在兼容问题。
+export IPHONEOS_DEPLOYMENT_TARGET=14.0
+export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-Wl,-undefined,dynamic_lookup -C link-arg=$MIN_FLAG"
 
 if [ "$PROFILE" = "release" ]; then CARGO_FLAGS="--release"; PROFILE_DIR="release"; else CARGO_FLAGS=""; PROFILE_DIR="debug"; fi
 

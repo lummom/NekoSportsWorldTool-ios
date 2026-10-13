@@ -38,3 +38,8 @@ docs/_preview.png
 # 自动更新替换残留
 *.exe.old
 *.exe.new
+
+# iOS 仓库：本地构建产物/身份文件不入库
+/*.exe
+/*.ipa
+

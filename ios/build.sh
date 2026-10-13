@@ -38,7 +38,8 @@ rm -rf "$APP"
 mkdir -p "$APP"
 
 SDK_PATH="$(xcrun --sdk "$SDK" --show-sdk-path)"
-swiftc -O -sdk "$SDK_PATH" -target "$SWIFT_TARGET" \
+xcrun --sdk "$SDK" swiftc -O -sdk "$SDK_PATH" -target "$SWIFT_TARGET" \
+  -Xlinker -syslibroot -Xlinker "$SDK_PATH" \
   "$ROOT/ios/main.swift" \
   -L "$(dirname "$LIB")" -lnekosportsworldtool \
   -framework UIKit -framework Foundation -framework CoreGraphics -framework QuartzCore \

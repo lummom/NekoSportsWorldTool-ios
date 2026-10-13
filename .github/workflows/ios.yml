@@ -27,6 +27,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run: rustup target add aarch64-apple-ios
+      - name: Rust ↔ Swift 符号名一致性
+        run: python3 ios/check_abi.py
       - run: cargo check --target aarch64-apple-ios --features ios
 
   desktop:

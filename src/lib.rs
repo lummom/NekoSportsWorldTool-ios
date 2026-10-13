@@ -27,7 +27,7 @@ mod ios;
 /// UIApplicationMain 并接管生命周期（因此这里必须在 UIApplication 初始化前被调用）。
 #[cfg(all(target_os = "ios", feature = "ios"))]
 #[no_mangle]
-pub extern "C" fn start_ios_app() {
+pub extern "C" fn nswt_ios_start() {
     let options = eframe::NativeOptions {
         run_and_return: false,
         ..Default::default()

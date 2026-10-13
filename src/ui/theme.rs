@@ -99,7 +99,7 @@ pub fn apply(ctx: &egui::Context) {
     style.spacing.item_spacing = egui::vec2(10.0, 7.0);
     style.spacing.button_padding = egui::vec2(12.0, 5.0);
     style.spacing.menu_margin = egui::Margin::same(8.0);
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     {
         style.spacing.interact_size = egui::vec2(44.0, 44.0);
         style.spacing.button_padding = egui::vec2(14.0, 10.0);

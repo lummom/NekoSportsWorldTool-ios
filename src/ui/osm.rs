@@ -43,7 +43,7 @@ impl App {
                 egui::TextEdit::singleline(&mut self.osm_page.path)
                     .hint_text("拖入 .osm 文件或填写路径"),
             );
-            #[cfg(not(target_os = "android"))]
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
             if ui.button("浏览…").clicked() {
                 if let Some(p) = rfd::FileDialog::new()
                     .add_filter("OSM", &["osm", "xml", "pbf"])
@@ -51,6 +51,11 @@ impl App {
                 {
                     self.osm_page.path = p.display().to_string();
                 }
+            }
+            #[cfg(target_os = "ios")]
+            if ui.button("选择文件…").clicked() {
+                crate::ios::pick_osm_file();
+                self.status = "请在系统文件选择器里选 .osm 文件".into();
             }
             let can_load = !self.osm_page.path.is_empty() && !self.osm_page.busy;
             if ui

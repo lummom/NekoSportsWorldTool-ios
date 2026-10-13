@@ -96,7 +96,7 @@ pub struct App {
 }
 
 impl eframe::App for App {
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
         visuals.panel_fill.to_normalized_gamma_f32()
     }
@@ -109,6 +109,8 @@ impl eframe::App for App {
         self.poll_messages();
         #[cfg(target_os = "android")]
         self.poll_device_info();
+        #[cfg(target_os = "ios")]
+        self.poll_ios();
         crate::platform::set_keep_screen_on(self.run_busy || self.ai_busy || self.login_busy);
         ctx.request_repaint_after(std::time::Duration::from_millis(200));
 
@@ -430,6 +432,18 @@ impl App {
     pub fn logger(tx: Sender<String>) -> impl FnMut(&str) {
         move |s: &str| {
             tx.send(s.to_string()).ok();
+        }
+    }
+}
+
+#[cfg(target_os = "ios")]
+impl App {
+    /// iOS：接住 Swift 侧送回来的 OSM 文件选择结果，并跑 CI 用的自检钩子。
+    fn poll_ios(&mut self) {
+        crate::ios::maybe_selftest(&mut self.tab);
+        if let Some(path) = crate::ios::take_picked_file() {
+            self.osm_page.path = path;
+            self.status = "已选择 OSM 文件，点「加载路网」生效".into();
         }
     }
 }

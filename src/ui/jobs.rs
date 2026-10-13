@@ -59,13 +59,13 @@ impl App {
                         .ok();
                 };
                 let bytes = crate::update::download(&rel.asset_url, &mut report)?;
-                #[cfg(target_os = "android")]
+                #[cfg(any(target_os = "android", target_os = "ios"))]
                 {
                     let path = crate::platform::data_dir().join(crate::update::APK_NAME);
                     std::fs::write(&path, &bytes).map_err(|e| format!("保存安装包失败: {e}"))?;
                     Ok(serde_json::json!({ "ok": true, "tag": rel.tag }))
                 }
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 {
                     let bin = crate::update::extract(&rel.asset_name, &bytes)?;
                     crate::update::apply(&bin)?;

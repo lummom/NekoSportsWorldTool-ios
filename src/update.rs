@@ -207,7 +207,7 @@ pub fn download(url: &str, mut progress: impl FnMut(u64, Option<u64>)) -> Result
 
 /// 从发布包解出新程序二进制。桌面：zip 内找 *.exe（7z 打包带 target/
 /// 目录前缀，取最大的一条）；tar.gz 内找根级 nekosportsworldtool。
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn extract(asset_name: &str, bytes: &[u8]) -> Result<Vec<u8>, String> {
     if asset_name.ends_with(".zip") {
         extract_zip(bytes)
@@ -220,8 +220,8 @@ pub fn extract(asset_name: &str, bytes: &[u8]) -> Result<Vec<u8>, String> {
     }
 }
 
-/// Android 无需解包（APK 整包交给系统安装器）。
-#[cfg(target_os = "android")]
+/// Android / iOS 无需解包（Android 把 APK 整包交给系统安装器；iOS 不支持自更新）。
+#[cfg(any(target_os = "android", target_os = "ios"))]
 pub fn extract(asset_name: &str, bytes: &[u8]) -> Result<Vec<u8>, String> {
     if asset_name.ends_with(".apk") {
         Ok(bytes.to_vec())
@@ -230,7 +230,7 @@ pub fn extract(asset_name: &str, bytes: &[u8]) -> Result<Vec<u8>, String> {
     }
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 fn extract_zip(bytes: &[u8]) -> Result<Vec<u8>, String> {
     let mut zip = zip::ZipArchive::new(std::io::Cursor::new(bytes))
         .map_err(|e| format!("zip 打开失败: {e}"))?;
@@ -257,7 +257,7 @@ fn extract_zip(bytes: &[u8]) -> Result<Vec<u8>, String> {
     best.ok_or_else(|| "zip 内未找到程序文件".into())
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 fn extract_tar_gz(bytes: &[u8]) -> Result<Vec<u8>, String> {
     let gz = flate2::read::GzDecoder::new(bytes);
     let mut tar = tar::Archive::new(gz);
@@ -283,7 +283,7 @@ fn extract_tar_gz(bytes: &[u8]) -> Result<Vec<u8>, String> {
 
 /// 自替换：新二进制落 .new → 当前程序改名 .old（Windows 允许重命名运行中的
 /// exe）→ .new 转正；失败回滚。调用方随后退出，残留 .old 由下次启动清理。
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn apply(binary: &[u8]) -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| format!("无法定位自身路径: {e}"))?;
     let dir = exe.parent().ok_or("无法定位 exe 目录")?;
@@ -368,7 +368,7 @@ mod tests {
         assert_eq!(any.unwrap().name, "app-arm64.apk");
     }
 
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     #[test]
     fn extract_zip_nested_exe() {
         let mut buf = std::io::Cursor::new(Vec::new());
@@ -387,7 +387,7 @@ mod tests {
         assert_eq!(extract("NekoSportsWorldTool-win-x64.zip", &bytes).unwrap(), b"BIN_CONTENT");
     }
 
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     #[test]
     fn extract_tar_gz_root_binary() {
         let mut bytes = Vec::new();

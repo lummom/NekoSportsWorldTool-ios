@@ -741,7 +741,12 @@ fn cmd_update(rest: &[&str]) -> i32 {
         println!("Android 版请在界面（关于页）中下载并安装更新");
         0
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(target_os = "ios")]
+    {
+        println!("iOS 版不支持应用内自更新，请到 Release 页手动下载");
+        0
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         println!("开始下载 {}…", rel.asset_name);
         let mut last_pct = u64::MAX;

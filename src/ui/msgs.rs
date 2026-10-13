@@ -319,11 +319,11 @@ impl App {
                 .to_string();
             if val.get("ok").and_then(|b| b.as_bool()).unwrap_or(false) {
                 self.status = format!("√ 已更新到 {tag}");
-                #[cfg(target_os = "android")]
+                #[cfg(any(target_os = "android", target_os = "ios"))]
                 {
                     self.update.finish = Some(FinishAction::InstallApk { tag });
                 }
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 {
                     self.update.finish = Some(FinishAction::Restart { tag });
                 }

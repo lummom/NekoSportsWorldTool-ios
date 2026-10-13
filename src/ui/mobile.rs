@@ -1,4 +1,4 @@
-//! Shared responsive and Android input helpers.
+//! Shared responsive and mobile (Android / iOS) input helpers.
 
 use crate::platform::InputKind;
 use eframe::egui;
@@ -26,7 +26,7 @@ pub fn row<R>(
     }
 }
 
-#[cfg(any(target_os = "android", test))]
+#[cfg(any(target_os = "android", target_os = "ios", test))]
 pub fn parse_i64_in_range(input: &str, range: RangeInclusive<i64>) -> Result<i64, String> {
     let value = input
         .trim()
@@ -39,7 +39,7 @@ pub fn parse_i64_in_range(input: &str, range: RangeInclusive<i64>) -> Result<i64
     }
 }
 
-#[cfg(any(target_os = "android", test))]
+#[cfg(any(target_os = "android", target_os = "ios", test))]
 pub fn parse_f32_in_range(input: &str, range: RangeInclusive<f32>) -> Result<f32, String> {
     let value = input
         .trim()
@@ -52,7 +52,7 @@ pub fn parse_f32_in_range(input: &str, range: RangeInclusive<f32>) -> Result<f32
     }
 }
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_os = "ios"))]
 fn parse_f64_in_range(input: &str, range: RangeInclusive<f64>) -> Result<f64, String> {
     let value = input
         .trim()
@@ -104,12 +104,12 @@ pub fn tab_bar(ui: &mut egui::Ui, selected: &mut usize) -> Vec<egui::Response> {
     responses
 }
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_os = "ios"))]
 fn input_width(ui: &egui::Ui, desired: f32) -> f32 {
     desired.min(ui.available_width().max(80.0))
 }
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_os = "ios"))]
 fn native_text_button(
     ui: &mut egui::Ui,
     id: egui::Id,
@@ -144,11 +144,11 @@ pub fn text_edit(
     desired_width: f32,
 ) -> egui::Response {
     let id = ui.make_persistent_id(id_source);
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     {
         native_text_button(ui, id, value, kind, desired_width)
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let mut edit = egui::TextEdit::singleline(value)
             .id(id)
@@ -160,14 +160,14 @@ pub fn text_edit(
     }
 }
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_os = "ios"))]
 fn show_input_error(ui: &mut egui::Ui, id: egui::Id) {
     if let Some(error) = ui.ctx().data(|data| data.get_temp::<String>(id)) {
         ui.colored_label(crate::ui::theme::err(), error);
     }
 }
 
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_os = "ios"))]
 fn set_input_error(ctx: &egui::Context, id: egui::Id, error: Option<String>) {
     ctx.data_mut(|data| match error {
         Some(error) => data.insert_temp(id, error),
@@ -175,7 +175,7 @@ fn set_input_error(ctx: &egui::Context, id: egui::Id, error: Option<String>) {
     });
 }
 
-#[cfg(any(target_os = "android", test))]
+#[cfg(any(target_os = "android", target_os = "ios", test))]
 fn numeric_control_shell<R>(
     ui: &mut egui::Ui,
     width: f32,
@@ -202,7 +202,7 @@ pub fn drag_i64(
     prefix: &str,
     suffix: &str,
 ) -> egui::Response {
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     {
         let _ = speed;
         let id = ui.make_persistent_id(id_source);
@@ -227,7 +227,7 @@ pub fn drag_i64(
         });
         inner.inner
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let _ = id_source;
         ui.add(
@@ -249,7 +249,7 @@ pub fn drag_f32(
     decimals: usize,
     suffix: &str,
 ) -> egui::Response {
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     {
         let _ = speed;
         let id = ui.make_persistent_id(id_source);
@@ -274,7 +274,7 @@ pub fn drag_f32(
         });
         inner.inner
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let _ = id_source;
         let _ = decimals;
@@ -295,7 +295,7 @@ pub fn drag_f64(
     speed: f64,
     decimals: usize,
 ) -> egui::Response {
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     {
         let _ = speed;
         let id = ui.make_persistent_id(id_source);
@@ -320,7 +320,7 @@ pub fn drag_f64(
         });
         inner.inner
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let _ = id_source;
         let _ = range;

@@ -1,0 +1,130 @@
+# iOS 构建与验收
+#
+# 三条独立链路：
+#   check       —— aarch64-apple-ios 类型检查（快，iOS 编译错误主要在这里收敛）
+#   desktop     —— Windows 桌面回归（确保这次改动没弄坏原平台）
+#   ipa         —— 出未签名 .ipa（等有 iPhone 时用 Sideloadly 侧载）
+#   simulator   —— 模拟器里真跑：装包、启动、截图、自检换页前后像素对比
+#
+# 无 Mac 的机器只能靠这里的 macOS runner 编译；模拟器截图会作为 artifact 上传。
+
+name: iOS
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: cargo check (aarch64-apple-ios)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: rustup target add aarch64-apple-ios
+      - run: cargo check --target aarch64-apple-ios --features ios
+
+  desktop:
+    name: 桌面回归 (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --features gui
+      - run: cargo test --features gui
+
+  ipa:
+    name: 未签名 .ipa
+    needs: check
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: rustup target add aarch64-apple-ios
+      - run: bash ios/build.sh device release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NekoSportsWorldTool-ios-arm64-ipa
+          path: dist/*.ipa
+          if-no-files-found: error
+
+  simulator:
+    name: 模拟器验收（能起 / 能画 / 换页重绘）
+    needs: check
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: rustup target add aarch64-apple-ios-sim
+      - run: bash ios/build.sh simulator release
+
+      - name: 启动模拟器并装包
+        run: |
+          set -euo pipefail
+          DEVICE="$(xcrun simctl list devices available | grep -oE 'iPhone [0-9A-Za-z() ]+' | head -1 | sed 's/ *$//')"
+          echo "模拟器: $DEVICE"
+          echo "DEVICE=$DEVICE" >> "$GITHUB_ENV"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" dist/NekoSportsWorldTool.app
+
+      - name: 跑起来 + 截图 + 自检
+        run: |
+          set -euo pipefail
+          mkdir -p dist/evidence
+          SIMCTL_CHILD_NSWT_SELFTEST=1 xcrun simctl launch --console "$DEVICE" org.nekosportsworld.tool > dist/evidence/app.log 2>&1 &
+          LAUNCH=$!
+          sleep 5
+          xcrun simctl io "$DEVICE" screenshot dist/evidence/shot-before.png
+          sleep 8
+          xcrun simctl io "$DEVICE" screenshot dist/evidence/shot-after.png
+          kill "$LAUNCH" 2>/dev/null || true
+          xcrun simctl spawn "$DEVICE" log show --last 2m --predicate 'process == "NekoSportsWorldTool"' > dist/evidence/system.log 2>&1 || true
+          echo "--- app.log 尾部 ---"; tail -40 dist/evidence/app.log || true
+          ls -l dist/evidence/
+
+      - name: 断言：截图非空 + 自检换页 + 无 panic
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PY'
+          import os, sys
+          from PIL import Image, ImageChops
+
+          before, after = "dist/evidence/shot-before.png", "dist/evidence/shot-after.png"
+          for path in (before, after):
+              size = os.path.getsize(path)
+              print(f"{path}: {size} 字节")
+              if size < 20_000:
+                  sys.exit(f"截图疑似空白: {path}")
+
+          a = Image.open(before).convert("RGB")
+          b = Image.open(after).convert("RGB")
+          if a.size != b.size:
+              sys.exit(f"截图尺寸不一致: {a.size} vs {b.size}")
+          diff = ImageChops.difference(a, b)
+          changed = sum(1 for pixel in diff.getdata() if sum(pixel) > 24)
+          ratio = changed / (a.size[0] * a.size[1])
+          print(f"换页前后变化像素占比: {ratio:.4%}")
+          if ratio < 0.005:
+              sys.exit("换页前后画面几乎没变 —— egui 没渲染或没重绘")
+          print("渲染 + 重绘 OK")
+          PY
+          if grep -qiE 'panic|fatal error' dist/evidence/app.log; then
+            echo "日志里出现 panic:"; grep -iE 'panic|fatal error' dist/evidence/app.log | head -5; exit 1
+          fi
+          if ! grep -q 'SELFTEST: switched tab to 1' dist/evidence/app.log; then
+            echo "自检没有换页（app.log 见 artifact）"; exit 1
+          fi
+          echo "模拟器验收通过"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: NekoSportsWorldTool-ios-simulator-evidence
+          path: dist/evidence/

@@ -88,6 +88,9 @@ public func nswt_ios_present_text(_ id: UInt64, _ value: UnsafePointer<CChar>?, 
         alert.addAction(UIAlertAction(title: "取消", style: .cancel) { _ in
             nswt_ios_text_result(id, nil)                    // 取消 = 保留原值
         })
+        if host.presentedViewController != nil {
+            nswtLog("present_text: 已有其它弹窗在前，输入框可能不会显示")
+        }
         alert.addAction(UIAlertAction(title: "确定", style: .default) { _ in
             let text = alert.textFields?.first?.text ?? ""
             text.withCString { nswt_ios_text_result(id, $0) }
@@ -131,6 +134,9 @@ public func nswt_ios_present_picker() {
         guard let host = nswtTopViewController() else {
             nswtLog("present_picker: no view controller")
             return
+        }
+        if host.presentedViewController != nil {
+            nswtLog("present_picker: 已有其它弹窗在前，选择器可能不会显示")
         }
         let picker = UIDocumentPickerViewController(forOpeningContentTypes: [UTType.data], asCopy: true)
         picker.delegate = NswtPickerDelegate.shared

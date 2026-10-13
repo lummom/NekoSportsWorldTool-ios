@@ -23,6 +23,7 @@ jobs:
   check:
     name: cargo check (aarch64-apple-ios)
     runs-on: macos-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -32,8 +33,14 @@ jobs:
       - run: cargo check --target aarch64-apple-ios --features ios
 
   desktop:
-    name: 桌面回归 (windows)
-    runs-on: windows-latest
+    name: 桌面回归 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        # Cargo.toml 里渲染后端按目标重新组合过：Windows/Android 已验，Linux 也得有一腿
+        os: [windows-latest, ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -44,6 +51,7 @@ jobs:
     name: 未签名 .ipa
     needs: check
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -59,6 +67,7 @@ jobs:
     name: 模拟器验收（能起 / 能画 / 换页重绘）
     needs: check
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -94,8 +103,10 @@ jobs:
       - name: 断言：截图非空 + 自检换页 + 无 panic
         run: |
           set -euo pipefail
-          python3 -m pip install --quiet Pillow
-          python3 ios/ci_assert_screenshots.py dist/evidence
+          # runner 的 Homebrew Python 是 externally-managed，不能用 pip 直装 → 用 venv
+          python3 -m venv .venv
+          ./.venv/bin/pip install --quiet --disable-pip-version-check Pillow
+          ./.venv/bin/python ios/ci_assert_screenshots.py dist/evidence
           if grep -qiE 'panic|fatal error' dist/evidence/app.log; then
             echo "日志里出现 panic:"; grep -iE 'panic|fatal error' dist/evidence/app.log | head -5; exit 1
           fi

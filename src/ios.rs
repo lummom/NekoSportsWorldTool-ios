@@ -19,7 +19,7 @@ use std::collections::HashMap;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use crate::platform::InputKind;
@@ -30,7 +30,6 @@ static INSETS: Mutex<[f32; 4]> = Mutex::new([0.0; 4]);
 static EDITS: OnceLock<Mutex<HashMap<u64, Option<String>>>> = OnceLock::new();
 static PICKED: Mutex<Option<String>> = Mutex::new(None);
 static SCREEN_ON: AtomicBool = AtomicBool::new(false);
-static FRAME: AtomicUsize = AtomicUsize::new(0);
 static SELFTEST_DONE: AtomicBool = AtomicBool::new(false);
 static START: OnceLock<std::time::Instant> = OnceLock::new();
 
@@ -116,11 +115,12 @@ pub(crate) fn data_dir() -> PathBuf {
 /// 自检钩子：CI 里带 NSWT_SELFTEST=1 启动时，跑满 8 秒后切一次标签页，
 /// 让 CI 能比较切换前后的截图（证明"能起、能画、能重绘"）。
 pub(crate) fn maybe_selftest(tab: &mut usize) {
-    if std::env::var("NSWT_SELFTEST").as_deref() != Ok("1") {
+    // 每帧都会调用：开关只查一次，避免每帧一次环境变量查询
+    static ENABLED: OnceLock<bool> = OnceLock::new();
+    if !*ENABLED.get_or_init(|| std::env::var("NSWT_SELFTEST").as_deref() == Ok("1")) {
         return;
     }
     let started = *START.get_or_init(std::time::Instant::now);
-    let _ = FRAME.fetch_add(1, Ordering::Relaxed);
     if started.elapsed() >= std::time::Duration::from_secs(8)
         && !SELFTEST_DONE.swap(true, Ordering::Relaxed)
     {

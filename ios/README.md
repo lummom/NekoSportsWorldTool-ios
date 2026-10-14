@@ -37,10 +37,24 @@ cargo check --features gui              # 顺带确认桌面没被改坏
 
 注意：免费账号有 3 个 app / 10 个 App ID 的限制；换 Apple ID 或换机器签出来的包不能互相覆盖安装。
 
+### Windows 上必须过这三关（都实测踩过）
+
+1. **只装 Sideloadly 不够，Apple 的 USB 驱动要单独装**：装「Apple 设备」（Microsoft Store）或 iTunes；
+   只抽 iTunes 安装包里的 `AppleMobileDeviceSupport64.msi` 也行（`7z x iTunes64Setup.exe`）。
+2. **装完驱动必须重启 Windows**：Apple 的 USB 过滤驱动 `AppleLowerFilter` 是重启后才加载的，
+   `sc query AppleLowerFilter` 显示 `STOPPED` 就说明还没生效，此时 usbmux 看不到任何设备。
+3. **手机要解锁并点「信任」**：配对记录落在 `C:\ProgramData\Apple\Lockdown\<UDID>.plist`；
+   没点信任的话，Windows 设备管理器能看到 iPhone，但侧载工具里设备列表是空的。
+
+想自己确认链路通没通，可以直接对 `127.0.0.1:27015` 发一次 usbmux `ListDevices`（Apple 的
+AppleMobileDeviceService 就监听这个端口），能看到 UDID 才算真的通——比盯着 Sideloadly 猜快。
+
 ## 已验证 / 未验证
 
+- **真机已跑通**：2026-10-14 用 Sideloadly + 免费 Apple ID 侧载到 iPhone，装上了、能启动、
+  能点按、能登录并正常干活（用户实测）。
 - CI 给两重证据：`cargo check --target aarch64-apple-ios` 编译通过；模拟器作业把 app 装进
   iOS 模拟器、启动、截图，并断言"换页前后画面确实变了"（证明能起、能画、能重绘），截图与
   日志作为 artifact 上传。**模拟器验收是否真的通过，以最新一次 CI 结果为准**，别只看本文档。
-- **未验证**：真机侧载安装、软键盘中文输入法、真机渲染与性能 —— 这些必须有 iPhone 才能测。
+- **仍未验证**：软键盘中文输入法（点输入框弹系统键盘/中文候选）、真机上的性能与流畅度。
 - 已知裁剪：iOS 上没有应用内自更新（关于页会提示去 Release 页下载）；桌面版的自替换逻辑在 iOS 不编译。

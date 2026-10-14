@@ -1111,7 +1111,14 @@ mod tests {
             .unwrap()
             .timestamp_millis();
         let now_ms = crate::crypto::envelope::now_ms();
-        assert_eq!(plan.start_ms, typed.min(now_ms));
+        // ensure_plan 内部也取了一次时钟：两次读数可能跨 1ms，用容差断言（曾在 CI 上偶发失败）
+        let expected = typed.min(now_ms);
+        assert!(
+            (plan.start_ms - expected).abs() <= 2,
+            "start_ms={} expected≈{}",
+            plan.start_ms,
+            expected
+        );
         assert_start_not_future(&plan);
         // 界面提示条件：填入时刻晚于现在（23:59 总成立，除非正好在那一分钟）
         if typed > now_ms {
